@@ -2,7 +2,6 @@
 
 use strict;
 
-use Test::Harness;
 use Test::More tests=>8;
 use Test::Group;
 use FindBin;

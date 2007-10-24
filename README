@@ -23,6 +23,13 @@ This module requires these other modules and libraries:
   GD::Image
   Statistics::Descriptive
 
+The test scripts accompanying the modules require the following modules and libraries:
+
+  Test::More
+  Test::Group
+  Test::Differences
+  Test::Deep 
+
 COPYRIGHT AND LICENCE
 
 Copyright (C) 2007 by Christopher Jones

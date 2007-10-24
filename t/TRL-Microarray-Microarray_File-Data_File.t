@@ -3,7 +3,6 @@
 use strict;
 
 use FindBin;
-use Test::Harness;
 use Test::More tests=>5;
 use Test::Group;
 use Test::Differences;
