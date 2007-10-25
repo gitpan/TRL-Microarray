@@ -1205,3 +1205,40 @@ use TRL::Microarray::Microarray_File::Quantarray;
   }
 }
 1;
+
+__END__
+
+=head1 NAME
+
+TRL::Microarray::Image - A Perl module for creating microarray data plots
+
+=head1 SYNOPSIS
+
+	use TRL::Microarray::Image;
+
+=head1 DESCRIPTION
+
+TRL::Microarray::Image is an object-oriented Perl module for creating microarray data plots.
+
+=head1 METHODS
+
+To be added
+
+=head1 SEE ALSO
+
+TRL::Microarray
+
+=head1 AUTHOR
+
+James Morris, Translational Research Laboratories, Institute for Women's Health, University College London.
+
+james.morris@ucl.ac.uk
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2007 by James Morris, University College London
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
+
+=cut

@@ -162,65 +162,6 @@ require TRL::Microarray;
 	}	
 }
 
-{ package bac_feature;
-
-	our @ISA = qw( array_feature );
-	
-	sub new {
-		my $class = shift;
-		my $self = { _spots => [] };
-		bless $self, $class;
-
-		# have to set feature_id and pipeline_object	
-		my $id_type = $self->id_type;	# set id depends on class default
-		$self->{ $id_type } = uc shift;
-		$self->pipeline_object(shift);
-		$self->bac_data;
-
-		return $self;
-	}
-}
-
-{ package chori_bac_feature;
-
-	require TRL::ArrayPipeLine::Pipeline_BAC;
-	
-	our @ISA = qw( bac_feature chori_bac );
-
-	sub feature_id {
-		my $self = shift;
-		$self->synonym;		# chori synonym
-	}
-}
-
-{ package ensembl_bac_feature;
-
-	require TRL::ArrayPipeLine::Pipeline_BAC;
-	
-	our @ISA = qw( bac_feature ensembl_bac );
-	
-	sub feature_id {
-		my $self = shift;
-		$self->bac_id;		# ensembl id
-	}
-}
-
-{ package gene_feature;
-
-	require TRL::ArrayPipeLine::Pipeline_Gene;
-	
-	our @ISA = qw( array_feature pipeline_gene );
-
-	sub new {
-		my $class = shift;
-		my $self = { _name => uc shift, _spots => [] };
-		bless $self, $class;
-		$self->pipeline_object(shift);
-		$self->set_data;
-		return $self;
-	}
-}
-
 
 1;
 

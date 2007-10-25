@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use Exporter;
 our @ISA = qw( Exporter );
-our $VERSION = '0.06';
+our $VERSION = '0.061';
 
 require TRL::Microarray::Microarray_File;
 use TRL::Microarray::Feature;
@@ -795,7 +795,7 @@ This module is under continued development for our laboratory's microarray facil
 
 =head1 SEE ALSO
 
-TRL::Microarray::Microarray_File, TRL::Microarray::Feature, TRL::Microarray::Spot, TRL::Microarray::CGH_Microarray
+TRL::Microarray::Microarray_File, TRL::Microarray::Feature, TRL::Microarray::Spot
 
 =head1 AUTHOR
 

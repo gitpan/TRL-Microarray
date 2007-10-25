@@ -1,4 +1,4 @@
-TRL-Microarray version 0.01
+TRL-Microarray version 0.061
 ===========================
 
 TRL::Microarray is a suite of object oriented Perl Modules for the analysis of microarray experiment data. These include modules for handling common formats of microarray files, modules for the programmatic abstraction of a microarray experiment, and for the output of a variety of images describing microarray experiment data. 
