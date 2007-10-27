@@ -9,7 +9,7 @@ use FindBin;
 my $curr_dir = $FindBin::Bin;
 
 BEGIN {
-	use_ok('TRL::Microarray::Microarray_File::Gal_File');
+	use_ok('TRL::Microarray::Microarray_File::GAL_File');
 	$SIG{__WARN__} = \&trap_warn;
 }
 
