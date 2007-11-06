@@ -3,7 +3,7 @@ package TRL::Microarray::Microarray_File::Quantarray;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.05';
+our $VERSION = '0.212';
 
 
 
@@ -169,12 +169,24 @@ our $VERSION = '0.05';
 		my $ch = shift;
 		$self->get_header_info("CH$ch Laser Powers");
 	}
-	### data file fields ###	
-	sub return_data {
+	sub array_columns {
 		my $self = shift;
-		my $aaData = $self->spot_data;
-		return $aaData->[shift][shift];
+		$self->get_header_info('Array Columns');
 	}
+	sub array_rows {
+		my $self = shift;
+		$self->get_header_info('Array Rows');
+	}
+	sub spot_columns {
+		my $self = shift;
+		$self->get_header_info('Spot Columns');
+	}
+	sub spot_rows {
+		my $self = shift;
+		$self->get_header_info('Spot Rows');
+	}
+	### data file fields ###
+	### NOTE: shifting in the array index, NOT the spot index ###	
 	sub spot_index {
 		my $self = shift;
 		$self->return_data(shift,$self->get_column_id('Index'));
@@ -564,6 +576,14 @@ No idea where this comes from. But its there in the data file.
 =item slide_barcode
 
 =item channel1_pmt, channel1_laser
+
+=item array_columns, array_rows
+
+Number of columns and rows of blocks on the array
+
+=item spot_columns, spot_rows
+
+Number of columns and rows of spots in each block
 
 =back
 

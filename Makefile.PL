@@ -1,6 +1,7 @@
 use 5.008001;
 use ExtUtils::MakeMaker;
 
+use File::Basename;
 
 WriteMakefile(
     NAME              => 'TRL::Microarray',
@@ -9,11 +10,14 @@ WriteMakefile(
     						GD => 2.32,
     						GD::Image => 2.27,
     						Statistics::Descriptive => 2.6,
+							FileHandle => 2.01,
+							File::Slurp => 9999.12,
+							File::Basename => 2.73,
 							Test::More => 0.64,
 							Test::Group => 0.07,
 							Test::Differences => 0.47,
 							Test::Deep => 0.096
-    					},	# no apologies for including test module dependencies!
+    					},	# no apologies for including test module dependencies
     ($] >= 5.005 ? 
       (ABSTRACT_FROM  => 'lib/TRL/Microarray.pm', 
        AUTHOR         => 'Christopher Jones <c.jones@ucl.ac.uk>') : ()),

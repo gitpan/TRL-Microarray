@@ -3,7 +3,7 @@ package TRL::Microarray::Microarray_File::BlueFuse;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.02';
+our $VERSION = '0.113';
 
 
 
@@ -16,7 +16,7 @@ our $VERSION = '0.02';
 	# setter for { _spot_data }, { _data_fields } and { _header_info }
 	sub sort_data {
 		my $self = shift;
-		my $aaData = shift;
+		my $aaData = shift;		
 		$self->set_header_info($aaData);
 		$self->set_data_fields(shift @$aaData);
 		$self->{ _spot_data } = $aaData;		# all the numbers
@@ -186,13 +186,65 @@ our $VERSION = '0.02';
 		my $self = shift;
 		return $self->get_header_info('SBR Ch2');
 	}
-	
-	### data file fields ###	
-	sub return_data {
+	sub array_columns {
+		my $self = shift;
+		if (@_){
+			$self->{ _array_columns } = shift;
+		} else {
+			unless (defined $self->{ _array_columns }){
+				$self->set_array_layout;
+			}
+			$self->{ _array_columns };
+		}
+	}
+	sub array_rows {
+		my $self = shift;
+		if (@_){
+			$self->{ _array_rows } = shift;
+		} else {
+			unless (defined $self->{ _array_rows }){
+				$self->set_array_layout;
+			}
+			$self->{ _array_rows };
+		}
+	}
+	sub spot_columns {
+		my $self = shift;
+		if (@_){
+			$self->{ _spot_columns } = shift;
+		} else {
+			unless (defined $self->{ _spot_columns }){
+				$self->set_array_layout;
+			}
+			$self->{ _spot_columns };
+		}
+	}
+	sub spot_rows {
+		my $self = shift;
+		if (@_){
+			$self->{ _spot_rows } = shift;
+		} else {
+			unless (defined $self->{ _spot_rows }){
+				$self->set_array_layout;
+			}
+			$self->{ _spot_rows };
+		}
+	}
+	# this only works if the array is sorted by block/spot
+	sub set_array_layout {
 		my $self = shift;
 		my $aaData = $self->spot_data;
-		return $aaData->[shift][shift];
+		my $block_row = $self->get_column_id('ROW');
+		my $block_col = $self->get_column_id('COL');
+		my $spot_row = $self->get_column_id('SUBGRIDROW'); 
+		my $spot_col = $self->get_column_id('SUBGRIDCOL'); 
+		my $aLast_Row = $aaData->[-1];
+		$self->array_columns($aLast_Row->[$block_col]);
+		$self->array_rows($aLast_Row->[$block_row]);
+		$self->spot_columns($aLast_Row->[$spot_col]);
+		$self->spot_rows($aLast_Row->[$spot_row]);
 	}
+	### data file fields ###	
 	sub spot_index {
 		my $self = shift;
 		$self->return_data(shift,$self->get_column_id('SPOTNUM'));
@@ -249,6 +301,16 @@ our $VERSION = '0.02';
 		my $self = shift;
 		$self->channel2_signal(shift);
 	}
+	# fudge to return some kind of snr value where required
+	# quality=PONCH, which is a 0-1 measure of biological signal
+	sub channel1_snr {
+		my $self = shift;
+		$self->channel1_quality(shift);
+	}
+	sub channel2_snr {
+		my $self = shift;
+		$self->channel2_quality(shift);
+	}
 	sub channel1_signal {
 		my $self = shift;
 		$self->return_data(shift,$self->get_column_id('AMPCH1'));
@@ -278,6 +340,14 @@ our $VERSION = '0.02';
 	sub log2ratio_ch2ch1 {
 		my $self = shift;
 		$self->return_data(shift,$self->get_column_id('LOG2RATIO CH2/CH1'));
+	}
+	sub log2_ratio {
+		my $self = shift;
+		if ($self->flip_flop == 1){
+			$self->log2ratio_ch1ch2(shift);
+		} else {
+			$self->log2ratio_ch2ch1(shift);
+		}	
 	}
 	sub log10ratio_ch1ch2 {
 		my $self = shift;

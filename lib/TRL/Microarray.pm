@@ -5,11 +5,16 @@ use strict;
 use warnings;
 use Exporter;
 our @ISA = qw( Exporter );
-our $VERSION = '0.062';
+our $VERSION = '0.23';
 
 require TRL::Microarray::Microarray_File;
 use TRL::Microarray::Feature;
 use TRL::Microarray::Spot;
+require TRL::Microarray::Microarray_File::Data_File;
+require TRL::Microarray::Microarray_File::Quantarray;
+require TRL::Microarray::Microarray_File::GenePix;
+require TRL::Microarray::Microarray_File::BlueFuse;
+use TRL::Microarray::Image;
 
 { package microarray;
 
@@ -43,8 +48,7 @@ use TRL::Microarray::Spot;
 			if ((ref $data_file) && ($data_file->isa('data_file')) ){	# if data_file object, load directly
 				$self->{ _data_file } = $data_file;
 			} else {							# otherwise, if passed a file name
-				my $scan_type = $self->scan_type;
-				my $oData_File = $scan_type->new($data_file);	# create the data_file object
+				my $oData_File = data_file->new($data_file);	# create the data_file object - let it guess the file format
 				$self->{ _data_file } = $oData_File;			# then load the data_file object
 			}
 		} else {
@@ -84,23 +88,6 @@ use TRL::Microarray::Spot;
 	sub default_prefix {
 		'no'
 	}
-	# getter setter for the data_file object type
-	# default type is quantarray_file
-	sub scan_type {
-		my $self = shift;
-		if (@_) {
-			$self->{ _scan_type } = shift;
-		} else {
-			if (defined $self->{ _scan_type }) {
-				$self->{ _scan_type };
-			} else {
-				$self->default_scan_type;
-			}
-		}
-	}
-	sub default_scan_type {
-		'quantarray_file';
-	}
 	sub channel1_dye_name {
 		my $self = shift;
 		my $data_file = $self->data_file;
@@ -134,9 +121,13 @@ use TRL::Microarray::Spot;
 	# setter for data_file parameters used in feature selection
 	sub set_param {
 		my $self = shift;
-		my $hArgs = shift;		
-		while (my ($arg,$value) = each %$hArgs) {
-			$self->$arg($value);
+		my %hArgs = @_;
+		while(my($arg,$val) = each %hArgs){
+			if ($self->can($arg)){
+				$self->$arg($val);
+			} else {
+				die "TRL::Microrray ERROR; No parameter '$arg' is defined\n";
+			}
 		}
 	}
 			
@@ -150,9 +141,11 @@ use TRL::Microarray::Spot;
 		my $self = shift;
 		$self->{ _features } = { };
 		my $blank_feature 	= $self->blank_feature;	# missing samples
-		my $data_file 		= $self->data_file;	
+		my $data_file 		= $self->data_file;
+		$data_file->set_spot_objects;
 		my $aSpots 			= $data_file->get_spots;
-		SPOT: for my $oSpot (@$aSpots) {
+		SPOT: for (my $i=1; $i<@$aSpots; $i++) {
+			my $oSpot = $$aSpots[$i];
 			next SPOT unless $oSpot;
 			next SPOT unless ($oSpot->feature_id);
 			next SPOT if ($oSpot->feature_id =~ /$blank_feature/i);
@@ -220,7 +213,7 @@ use TRL::Microarray::Spot;
 		my $aFeatures = $self->get_feature_objects;
 		for my $oFeature (@$aFeatures) {
 			$self->sort_feature_data($oFeature);
-			$self->set_genetic_data($oFeature);
+			#$self->set_genetic_data($oFeature);
 		}
 	}
 	sub sort_feature_data {
@@ -246,27 +239,25 @@ use TRL::Microarray::Spot;
 			$oSpot->spot_status(0); 	# set spot to 'rejected' at start
 			next SPOT if (defined $hBad_Flags->{ $oSpot->flag_id });
 
-			unless ($self->ignore_signal_qa){
+			unless ($self->should_ignore_signal_qa){
 				######## SIGNAL QUALITY ASSESSMENTS ########
 				if (($oSpot->channel1_signal < $low_signal) 		||
 					($oSpot->channel1_signal > $high_signal)		||
-					($oSpot->channel1_sat > $percen_sat)			||
+					($oSpot->channel1_sat && ($oSpot->channel1_sat > $percen_sat))			||
 					($oSpot->channel1_snr < $min_snr)				||
 					($oSpot->channel1_quality < $signal_quality)	||
 					($oSpot->channel2_signal < $low_signal) 		||
 					($oSpot->channel2_signal > $high_signal) 		||
-					($oSpot->channel2_sat > $percen_sat)			||
+					($oSpot->channel2_sat && ($oSpot->channel2_sat > $percen_sat))			||
 					($oSpot->channel2_snr < $min_snr)				||
 					($oSpot->channel2_quality < $signal_quality) ){
 					next SPOT;			
 				} 
 			}
-			unless ($self->ignore_spot_qa){
+			unless ($self->should_ignore_spot_qa){
 				######## SPOT QUALITY ASSESSMENTS ########
 				if (($oSpot->spot_diameter < $min_diameter) 		|| 
-					($oSpot->spot_diameter > $max_diameter)			||
-					($oSpot->spot_pixels > $max_pixels)				||
-					($oSpot->spot_pixels < $min_pixels) ){
+					($oSpot->spot_diameter > $max_diameter)){
 					next SPOT;			
 				} 
 			}		
@@ -280,6 +271,9 @@ use TRL::Microarray::Spot;
 			# for calculation of feature signal ratios
 			$oFeature->all_ch1($oSpot->channel1_signal);
 			$oFeature->all_ch2($oSpot->channel2_signal);
+			# for some plots
+			$self->x_pos($oSpot->x_pos);
+			$self->y_pos($oSpot->y_pos);
 			unless ($oSpot->channel2_signal == 0){
 				$self->all_ratios(($oSpot->channel1_signal)/($oSpot->channel2_signal));
 				$oFeature->all_ratios(($oSpot->channel1_signal)/($oSpot->channel2_signal));
@@ -308,14 +302,21 @@ use TRL::Microarray::Spot;
 #	}
 	sub ignore_signal_qa {
 		my $self = shift;
-		@_	?	$self->{ _ignore_signal_qa } = shift
-			:	$self->{ _ignore_signal_qa };
+		$self->{ _ignore_signal_qa }++;
 	}
 	sub ignore_spot_qa {
 		my $self = shift;
-		@_	?	$self->{ _ignore_spot_qa } = shift
-			:	$self->{ _ignore_spot_qa };
+		$self->{ _ignore_spot_qa }++;
 	}
+	sub should_ignore_signal_qa {
+		my $self = shift;
+		$self->{ _ignore_signal_qa };
+	}
+	sub should_ignore_spot_qa {
+		my $self = shift;
+		$self->{ _ignore_spot_qa };
+	}
+	
 	# the methods all_ch1/ch2/ratios create an array ref
 	# containing all the relevant values from the array
 	# these arrayrefs can be analysed for QC purposes
@@ -342,6 +343,30 @@ use TRL::Microarray::Spot;
 			push (@$aCh2_Signals, shift);
 		} else {
 			$self->{ _all_ch2 };
+		}
+	}
+	sub x_pos {
+		my $self = shift;
+		unless (defined $self->{ _x_pos }){
+			$self->{ _x_pos } = [];
+		}
+		if (@_){
+			my $aX_Pos = $self->{ _x_pos };
+			push (@$aX_Pos, shift);
+		} else {
+			$self->{ _x_pos };
+		}
+	}
+	sub y_pos {
+		my $self = shift;
+		unless (defined $self->{ _y_pos }){
+			$self->{ _y_pos } = [];
+		}
+		if (@_){
+			my $aY_Pos = $self->{ _y_pos };
+			push (@$aY_Pos, shift);
+		} else {
+			$self->{ _y_pos };
 		}
 	}
 	sub all_ratios {
@@ -589,12 +614,6 @@ use TRL::Microarray::Spot;
 			}
 		}
 	}
-	# database handle
-	sub dbh {
-		my $self = shift;
-		@_	?	$self->{ _dbh } = shift
-			:	$self->{ _dbh };
-	}
 	#Êgenetic_data_source defines whether we get the genetic data from file or database
 	# currently, 'data_file' means from the results file (ie what was in the GAL file)
 	# 'database' from array_pipeline_v4.chori_bac_clone_info
@@ -627,7 +646,49 @@ use TRL::Microarray::Spot;
 				$self->default_format_headers;
 			}
 		}
+	}
+	
+	### image output ###
+	sub set_image_data {
+		my $self = shift;
+		my $oImage = shift;
+		$oImage->{ _ch1_values } = $self->all_ch1;
+		$oImage->{ _ch2_values } = $self->all_ch2;
+		$oImage->{ _x_coords } = $self->x_pos;
+		$oImage->{ _y_coords } = $self->y_pos;
+		$oImage->process_data;	# by-pass $oImage->set_data
 	}	
+	sub plot_ma {
+		my $self = shift;
+		my $oImage = ma_plot->new();
+		$self->set_image_data($oImage);
+		$oImage->make_plot;
+	}
+	sub plot_ri {
+		my $self = shift;
+		my $oImage = ri_plot->new();
+		$self->set_image_data($oImage);
+		$oImage->make_plot;
+	}
+	sub plot_intensity_scatter {
+		my $self = shift;
+		my $oImage = intensity_scatter->new();
+		$self->set_image_data($oImage);
+		$oImage->make_plot;
+	}
+	sub plot_log2_heatmap {
+		my $self = shift;
+		my $oImage = log2_heatmap->new();
+		$self->set_image_data($oImage);
+		$oImage->make_plot;
+	}
+	sub plot_intensity_heatmap {
+		my $self = shift;
+		my $oImage = intensity_heatmap->new();
+		$self->set_image_data($oImage);
+		$oImage->make_plot;
+	}
+
 }
 
 1;
@@ -642,13 +703,12 @@ TRL::Microarray - A Perl module for creating and manipulating microarray objects
 
 	use TRL::Microarray;
 
-	my $data_file = quantarray_file->new("/test_data.csv");
-	my $array = cgh_array->new('my array',$data_file);
-	my $aaData = $array->format_cgh_data;
+	my $oArray = microarray->new($barcode,$data_file);
+	$oArray->set_feature_data;
 
 =head1 DESCRIPTION
 
-TRL::Microarray is an object-oriented Perl module for creating microarray data objects, and analysing the results. The module currently only supports analysis of CGH-microarrays, and the Axon 'GenePix' and Perkin-Elmer 'Scanarray' data file formats, although it has been designed with the intention of handling all types of microarrays and data file formats. 
+TRL::Microarray is an object-oriented Perl module for creating microarray data objects, and analysing the results. The module currently supports import of Axon 'GenePix', Perkin-Elmer 'Scanarray' and BlueGnome 'BlueFuse' data file formats, and the output of several data plots such as scatter, heatmap and MA plots. 
 
 =head2 How it works
 
@@ -664,31 +724,17 @@ The microarray object is created by providing a barcode (or name) and a data fil
 
 The data file can be passed to Microarray either as a file name, filehandle object, or data_file object. If a filehandle is passed, the filename also needs to be set. 
 
-	$array = cgh_array->new('my array','/file');  # will set the file format to the default
+	$oArray = microarray->new($barcode,'my_file');  	# will try to guess the file format
 	
 	or
 	
-	$data_file = quantarray_file->new('/file');  # simple way of specifying the file format...
-	$array = cgh_array->new('my array',$data_file);  # ...and loading into microarray
-
-	or
-	
-	$array = cgh_array->new('my array');
-	$array->scan_type('quantarray_file');  # another way of specifying the file format...
-	$array->data_file('/file');  # ...and loading into microarray
-	
-	or
-	
-	$data_file = quantarray_file->new('/file',$Fh);  # can pass a filename and filehandle to the data file
-	$array = cgh_array->new('my array',$data_file);
+	$oData_File = quantarray_file->new('my_file');  	# create the data file...
+	$oData_File = quantarray_file->new('my_file',$Fh);  # can pass a filename and filehandle to the data file
+	$oArray = microarray->new($barcode,$oData_File);  	# ...then load into microarray
 
 =head2 Feature Identification
 
 =over
-
-=item genetic_data_source
-
-Defines where Microarray can find the genetic data related to a feature. Set to either 'data_file' (default) or 'database'. For more information, see the documentation for sub classes of TRL::Microarray that deal with specific microarray platforms (for example TRL::Microarray::CGH_Microarray)
 
 =item blank_feature
 
@@ -704,7 +750,7 @@ Set to 'y' if the feature id is prefixed in some way (for instance, we use prefi
 
 There are many parameters that are used in the process of defining features, and for their quality control. Below is an overview of the methods used. As well as being able to set these parameters individually, you can also set a number in one call using the set_param() method
 
-	$array->set_param({'min_diameter'=>100,'min_snr'=>10});
+	$array->set_param(min_diameter=>100,min_snr=>10);
 
 =head3 Spot Quality Control
 
@@ -712,21 +758,13 @@ There are various (mostly self-explanatory) methods for setting spot quality con
 
 =over
 
-=item low_signal
+=item low_signal, high_signal
 
-Default = 5000
+Defaults = 5000, 60000
 
-=item high_signal
+=item min_diameter, max_diameter
 
-Default = 60000
-
-=item min_diameter
-
-Default = 80
-
-=item max_diameter
-
-Default = 150
+Default = 80, 150
 
 =item min_pixels
 
@@ -734,11 +772,11 @@ Default = 80
 
 =item signal_quality
 
-Varies depending on the data file format used; for the ScanArray format, this refers to the percentage of spot pixels that are more than 2 standard deviations above the background. Default = 95
+Varies depending on the data file format used; for the ScanArray format, this refers to the percentage of spot pixels that are more than 2 standard deviations above the background (default = 95); for BlueFuse this corresponds to the spot confidence value. 
 
 =item percen_sat
 
-The method percen_sat() refers to the percentage of spot pixels that have a saturated signal. Default = 10
+The method percen_sat() refers to the percentage of spot pixels that have a saturated signal. Default = 10. Not relevant to BlueFuse format.
 
 =back
 
@@ -752,19 +790,12 @@ Set to either 'y' or 'n', to include ratio normalisation. Note: this is only bas
 
 =back
 
-=head2 Formatting Data Output
-
-The data fields that should be output are defined using the format_headers() method. Which data fields can be returned are defined by sub-classes of TRL::Microarray that deal with specific microarray platforms. For example, TRL::Microarray::CGH_Microarray provides the default fields Name, location, log2_mor and log2_rom. Additional fields are ch1, ch2, BAC name, BAC synonym, chromosome, band, start, and end. The format_data method returns a 2D-array, where the first array contains the data field headings, and subsequent arrays contain the data requested. If genetic information about a feature is obtained from a database, then a database handle must be passed to the format_data() method. Beware that features will not be returned in any specific order.
-
-	$array->format_headers('Name','location','chromosome','band','log2_rom');
-	$aaFormatted_Data = $array->format_cgh_data($dbh);
-
 =head2 Access to Spot Data
 
 All of the microarray data can be independently accessed in one of two ways. First, data can be obtained directly from the data file object, and in fact you could use this module just to simplify the data input process for your own applications and not use any of the other functions of Microarray. Individual spot objects can be returned by referring to their spot index (which is usually also the order they appear in the data file) or all spot objects can be returned as a list. See TRL::Microarray::Spot and TRL::Microarray::Feature for more information.
 
-	my $spot = $data_file->get_spots(1);
-	my $aAll_Spots = $data_file->get_spots;
+	my $spot = $oData_File->get_spots(1);
+	my $aAll_Spots = $oData_File->get_spots;
 
 =head3 Data file methods
 
@@ -784,10 +815,10 @@ For example in the ScanArray format, the data header contains information about 
 
 Alternatively you can access the feature data, which collates replicate spot data. Either, individual feature objects can be returned, and array_feature methods applied to them, or all feature objects/ids can be returned as a list. 
 
-	$feature = $array->get_feature('feature1');  # returns a single feature object
-	$aFeature_Objects = $array->get_feature_objects;  # returns a list of feature objects
-	$aFeature_Names = $array->get_feature_ids;  # returns a list of feature ids
-	$hFeatures = $array->get_all_features;  # returns a hash of features; key=feature_id, value=feature object
+	$oFeature = $oArray->get_feature('feature1');  # returns a single feature object
+	$aFeature_Objects = $oArray->get_feature_objects;  # returns a list of feature objects
+	$aFeature_Names = $oArray->get_feature_ids;  # returns a list of feature ids
+	$hFeatures = $oArray->get_all_features;  # returns a hash of features; key=feature_id, value=feature object
 
 =head1 FUTURE DEVELOPMENT
 
@@ -805,7 +836,7 @@ c.jones@ucl.ac.uk
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2006 by Christopher Jones, University College London
+Copyright 2007 by Christopher Jones, University College London
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

@@ -3,7 +3,7 @@ package TRL::Microarray::Microarray_File::GenePix;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.02';
+our $VERSION = '0.16';
 
 
 { package genepix_file;
@@ -22,7 +22,8 @@ our $VERSION = '0.02';
 		my $col_num = $$aRow_Cols[1];
 		$self->set_header_info($aaData,$header_rows);
 		$self->set_data_fields(shift @$aaData);
-		$self->set_spot_objects($aaData);	# all the numbers
+		$self->{ _spot_data } = $aaData;		# all the numbers
+		$self->{ _spot_count } = scalar @$aaData;
 	}
 	# information about the scan
 	sub set_header_info {
@@ -126,225 +127,130 @@ our $VERSION = '0.02';
 		my $ch = shift;
 		$self->get_header_info("CH$ch LaserPower");
 	}
-	# sets the spot object data
-	sub set_spot_objects {
-		my $self = shift;
-		my $aaData = shift;
-		my $aData_Fields = $self->data_file_fields;
-		my $index = 0;
-		while (my $aData_Row = shift @$aaData){	
-			last unless ($$aData_Row[0]);
-			$index++;
-			my $oSpot = array_spot->new();						# new spot object
-			for my $field (@$aData_Fields){						# each spot field name
-				if ($field eq 'spot_index'){
-					$oSpot->spot_index($index);
-				} else {
-					$oSpot->$field($self->$field($aData_Row));		#Êfill the spot object with the spot_row data
-				}
-			}
-			# add spot object to data_file
-			$self->add_spot($oSpot);
-		}
-	}	
+	# data
 	sub feature_id {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('Name') ];
+		$self->return_data(shift,$self->get_column_id('Name'));
 	}
 	sub synonym_id {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('ID') ];
+		$self->return_data(shift,$self->get_column_id('ID'));
+	}
+	sub x_pos {
+		my $self = shift;
+		$self->return_data(shift,$self->get_column_id('X'));
+	}
+	sub y_pos {
+		my $self = shift;
+		$self->return_data(shift,$self->get_column_id('Y'));
 	}
 	sub ch1_mean_f {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F635 Mean') ];
+		$self->return_data(shift,$self->get_column_id('F635 Mean'));
 	}
 	sub ch2_mean_f {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F532 Mean') ];
+		$self->return_data(shift,$self->get_column_id('F532 Mean'));
 	}
 	sub ch1_mean_b {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('B635 Mean') ];
+		$self->return_data(shift,$self->get_column_id('B635 Mean'));
 	}
 	sub ch2_mean_b {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('B532 Mean') ];
+		$self->return_data(shift,$self->get_column_id('B532 Mean'));
 	}
 	sub ch1_median_b {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('B635 Median') ];
+		$self->return_data(shift,$self->get_column_id('B635 Median'));
 	}
 	sub ch2_median_b {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('B532 Median') ];
+		$self->return_data(shift,$self->get_column_id('B532 Median'));
 	}
 	sub ch1_b1_sd {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('% > B635+1SD') ];
+		$self->return_data(shift,$self->get_column_id('% > B635+1SD'));
 	}
 	sub ch2_b1_sd {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('% > B532+1SD') ];
+		$self->return_data(shift,$self->get_column_id('% > B532+1SD'));
 	}
 	sub block_row {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('Block') ];
+		$self->return_data(shift,$self->get_column_id('Block'));
 	}
 	sub block_col {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('Block') ];
+		$self->return_data(shift,$self->get_column_id('Block'));
 	}
 	sub spot_row {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('Row') ];
+		$self->return_data(shift,$self->get_column_id('Row'));
 	}
 	sub spot_col {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('Column') ];
+		$self->return_data(shift,$self->get_column_id('Column'));
 	}
 	sub channel1_signal {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F635 Mean - B635') ];
+		$self->return_data(shift,$self->get_column_id('F635 Mean - B635'));
 	}
 	sub channel2_signal {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F532 Mean - B532') ];
-	}
-	sub channel_signal {
-		my $self = shift;
-		my $aData = shift;
-		my $ch = shift;
-		my $method = "channel".$ch."_signal";
-		$self->$method($aData);
-	}
-	sub channel1_snr {
-		my $self = shift;
-		my $aData = shift;
-		my $median = $self->ch1_median_f($aData);
-		my $sd = $self->ch1_sd_b($aData);
-		if ($median && $sd) {
-			return $median / $sd;
-		} elsif ($median) {
-			return $median;
-		} else {
-			return 0;
-		}
-	}
-	sub channel2_snr {
-		my $self = shift;
-		my $aData = shift;
-		my $median = $self->ch2_median_f($aData);
-		my $sd = $self->ch2_sd_b($aData);
-		if ($median && $sd) {
-			return $median / $sd;
-		} elsif ($median) {
-			return $median;
-		} else {
-			return 0;
-		}
-	}
-	sub channel_snr {
-		my $self = shift;
-		my $aData = shift;
-		my $ch = shift;
-		my $method = "channel".$ch."_snr";
-		$self->$method($aData);
+		$self->return_data(shift,$self->get_column_id('F532 Mean - B532'));
 	}
 	sub ch1_sd_b {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('B635 SD') ];
+		$self->return_data(shift,$self->get_column_id('B635 SD'));
 	}
 	sub ch2_sd_b {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('B532 SD') ];
+		$self->return_data(shift,$self->get_column_id('B532 SD'));
 	}
 	sub ch1_sd_f {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F635 SD') ];
+		$self->return_data(shift,$self->get_column_id('F635 SD'));
 	}
 	sub ch2_sd_f {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F532 SD') ];
+		$self->return_data(shift,$self->get_column_id('F532 SD'));
 	}
 	sub ch1_median_f {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F635 Median') ];
+		$self->return_data(shift,$self->get_column_id('F635 Median'));
 	}
 	sub ch2_median_f {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F532 Median') ];
+		$self->return_data(shift,$self->get_column_id('F532 Median'));
 	}
 	sub channel1_quality {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('% > B635+2SD') ];
+		$self->return_data(shift,$self->get_column_id('% > B635+2SD'));
 	}
 	sub channel2_quality {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('% > B532+2SD') ];
-	}
-	sub channel_quality {
-		my $self = shift;
-		my $aData = shift;
-		my $ch = shift;
-		my $method = "channel".$ch."_quality";
-		$self->$method($aData);
+		$self->return_data(shift,$self->get_column_id('% > B532+2SD'));
 	}
 	sub channel1_sat {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F635 % Sat.') ];
+		$self->return_data(shift,$self->get_column_id('F635 % Sat.'));
 	}
 	sub channel2_sat {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F532 % Sat.') ];
-	}
-	sub channel_sat {
-		my $self = shift;
-		my $aData = shift;
-		my $ch = shift;
-		my $method = "channel".$ch."_sat";
-		$self->$method($aData);
+		$self->return_data(shift,$self->get_column_id('F532 % Sat.'));
 	}
 	sub spot_diameter {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('Dia.') ];
+		$self->return_data(shift,$self->get_column_id('Dia.'));
 	}
 	sub spot_pixels {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('F Pixels') ];
+		$self->return_data(shift,$self->get_column_id('F Pixels'));
 	}
 	sub flag_id {
 		my $self = shift;
-		my $aData = shift;
-		$$aData[ $self->get_column_id('Flags') ];
+		$self->return_data(shift,$self->get_column_id('Flags'));
 	}
 	sub bad_flags {
 		{ '-50'=>'1', '-75'=>'1' }

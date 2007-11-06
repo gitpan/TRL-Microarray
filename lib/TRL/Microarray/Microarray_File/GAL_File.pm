@@ -3,7 +3,7 @@ package TRL::Microarray::Microarray_File::GAL_File;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.02';
+our $VERSION = '0.211';
 
 require TRL::Microarray::Microarray_File;
 

@@ -3,7 +3,7 @@ package TRL::Microarray::Microarray_File::Data_File;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.02';
+our $VERSION = '0.213';
 
 require TRL::Microarray::Microarray_File;
 require TRL::Microarray::Microarray_File::Quantarray;
@@ -82,7 +82,6 @@ require TRL::Microarray::Spot;
 		$self->{ _header_info } = shift;
 	}
 	# sets spot objects for all data in one go
-	# removes data from _spot_data, so direct access methods will not work
 	sub set_spot_objects {
 		my $self = shift;
 		my $aaData = $self->spot_data;
@@ -91,7 +90,7 @@ require TRL::Microarray::Spot;
 		for (my $i=0; $i<@$aaData; $i++){	
 			my $oSpot = array_spot->new();						# new spot object
 			for my $field (@$aData_Fields){						# each spot field name
-				$oSpot->$field($self->$field($i));		#Êfill the spot object with the spot_row data
+				$oSpot->$field($self->$field($i));				#Êfill the spot object with the spot_row data
 			}
 			# add spot object to data_file
 			$self->add_spot($oSpot);
@@ -163,7 +162,14 @@ require TRL::Microarray::Spot;
 			'block_row','block_col',
 			'spot_diameter','flag_id',
 			'spot_row','spot_col','x_pos','y_pos', 
-			'ch1_mean_f','ch1_median_b','ch2_mean_f','ch2_median_b'];
+			'ch1_mean_f','ch1_median_b','ch2_mean_f','ch2_median_b',
+			'channel1_snr','channel2_snr',
+			'log2_ratio'];
+	}
+	sub return_data {
+		my $self = shift;
+		my $aaData = $self->spot_data;
+		return $aaData->[shift][shift];
 	}
 	sub image_file_names {
 		my $self = shift;
@@ -192,6 +198,34 @@ require TRL::Microarray::Spot;
 		my $self = shift;
 		my $index = shift;
 		$self->ch2_mean_f($index) - $self->ch2_median_b($index);
+	}
+	sub log2_ratio {
+		my $self = shift;
+		my $index = shift;
+		my $ch1 = $self->channel1_signal($index);
+		my $ch2 = $self->channel2_signal($index);
+		return if (($ch1 <= 0) || ($ch2 <= 0));
+		if ($self->flip_flop == 1){
+			return log($ch1/$ch2)/log(2);
+		} else {
+			return log($ch2/$ch1)/log(2);
+		}
+	}
+	sub flip_flop {
+		my $self = shift;
+		if (defined $self->{ _flip_flop }){
+			$self->{ _flip_flop };
+		} else {
+			return 1;
+		}
+	}
+	sub flip {
+		my $self = shift;
+		$self->{ _flip_flop } = -1;
+	}
+	sub flop {
+		my $self = shift;
+		$self->{ _flip_flop } = 1;
 	}
 	sub channel_signal {
 		my $self = shift;

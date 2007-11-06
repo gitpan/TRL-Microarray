@@ -3,7 +3,7 @@ package TRL::Microarray::Spot;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.02';
+our $VERSION = '0.18';
 
 require TRL::Microarray;
 
@@ -194,6 +194,11 @@ require TRL::Microarray;
 		my $self = shift;
 		@_	?	$self->{ _synonym_id } = shift
 			:	$self->{ _synonym_id };
+	}
+	sub log2_ratio {
+		my $self = shift;
+		@_	?	$self->{ _log2_ratio } = shift
+			:	$self->{ _log2_ratio };
 	}
 	sub channel1_signal {
 		my $self = shift;
