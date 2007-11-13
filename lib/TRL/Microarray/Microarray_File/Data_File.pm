@@ -308,7 +308,7 @@ If you know the type of data file you are dealing with, then you should use the 
 
 =head3 Spot object creation
 
-The module can create individual L<Microarray::Spot|Microarray::Spot> objects for you, either on-mass, or individually as you want them. The overhead for doing this is not huge, so if you have replicates that you want to handle using the L<Microarray::Feature|Microarray::Feature> module, this is a handy way to fill the Feature container. 
+The module can create individual L<TRL::Microarray::Spot|TRL::Microarray::Spot> objects for you, either on-mass, or individually as you want them. The overhead for doing this is not huge, so if you have replicates that you want to handle using the L<TRL::Microarray::Feature|TRL::Microarray::Feature> module, this is a handy way to fill the Feature container. 
 
 	$oFile->spot_object(123);				# sets and gets object for spot index 123
 
@@ -369,7 +369,7 @@ This distribution does not include data files for testing purposes, since those 
 
 =head1 SEE ALSO
 
-L<TRL::Microarray|TRL::Microarray>, L<TRL::Microarray::Microarray_File|TRL::Microarray::Microarray_File>
+L<TRL::Microarray|TRL::Microarray>, L<TRL::Microarray::Microarray_File|TRL::Microarray::Microarray_File>, L<TRL::Microarray::Spot|TRL::Microarray::Spot>
 
 =head1 AUTHOR
 

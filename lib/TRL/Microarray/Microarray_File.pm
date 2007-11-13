@@ -3,7 +3,7 @@ package TRL::Microarray::Microarray_File;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.114';
+our $VERSION = '0.118';
 
 { package microarray_file;
 
@@ -22,6 +22,8 @@ our $VERSION = '0.114';
 	}
 	sub DESTROY {
 		my $self = shift;
+		my $filehandle = $self->filehandle;
+		close $filehandle;
 	}
 	sub filehandle {
 		my $self = shift;
@@ -54,9 +56,9 @@ our $VERSION = '0.114';
 	}
 	sub close_filehandle {
 		my $self = shift;
-		my $filehandle = $self->filehandle;
-		close $filehandle or die 
-			"TRL::Microarray::Microarray_File ERROR: Could not close filehandle\n$!\n";
+    my $filehandle = $self->filehandle;
+		  close $filehandle or die 
+			  "TRL::Microarray::Microarray_File ERROR: Could not close filehandle\n$!\n";
 	}
 	sub reset_filehandle {
 		my $self = shift;
@@ -389,7 +391,15 @@ our $VERSION = '0.114';
 { package log_file;
 
 	our @ISA = qw( microarray_text_file );
-
+    
+    sub create_filehandle {
+		use FileHandle;
+		my $self = shift;
+		my $file_name = $self->file_name;
+		my $filehandle = new FileHandle ">> $file_name" or die 
+			"TRL::Microarray::Microarray_File ERROR: Could not create filehandle for '$file_name'\n$!\n";
+		return $filehandle;
+	}
 	sub load_file_data {
 		my $self = shift;
 		my $source = $self->get_source;
@@ -417,6 +427,40 @@ our $VERSION = '0.114';
 
 	our @ISA = qw( microarray_file );
 	
+	sub new {
+		my $class = shift;
+		my $self = { };
+		if (@_){		
+			my $file_name = shift;
+			$self->{ _file_name } = $file_name;		# shift in file name
+			bless $self, $class;
+			if ($class eq 'microarray_image_file'){
+				# try and guess which file type we're dealing with
+				my $class = $self->guess_class;
+				unless ($class eq 'microarray_image_file'){
+					# if we've found a better match, recreate ourself
+					$self = { _file_name => $file_name };
+					bless $self,$class;
+				}
+			}
+			$self->import_data;
+		} else {
+			bless $self, $class;
+		}
+		return $self;
+	}
+	sub guess_class {
+		my $self = shift;
+		my $hInfo = $self->get_header_info;
+		if ($hInfo->{ Model } =~ /GenePix/){
+			return 'genepix_image';
+		} elsif ($hInfo->{ Model } =~ /ScanArray/){
+			return 'quantarray_image';
+		} else {
+			warn "TRL::Microarray::Microarray_File ERROR: Could not deduce the type of file from '".$self->file_name."'\n";
+			return 'microarray_image_file';
+		}
+	}
 	sub import_data {
 		my $self = shift;
 		$self->set_header_info;
@@ -440,6 +484,9 @@ our $VERSION = '0.114';
 		my $exifTool = $self->get_exiftool_object;
 		$self->{ _header_info } = $exifTool->GetInfo;
 		$self->set_header_data;
+	}
+	sub set_header_data {
+		return;
 	}
 	# get_header_info inherited from microarray_file class
 	

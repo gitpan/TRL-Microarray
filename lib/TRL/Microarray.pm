@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use Exporter;
 our @ISA = qw( Exporter );
-our $VERSION = '0.24';
+our $VERSION = '0.241';
 
 require TRL::Microarray::Microarray_File;
 use TRL::Microarray::Feature;
